@@ -13,9 +13,9 @@ Public Class Form1
 
     Dim partDoc As Inventor.PartDocument
     Dim param As Inventor.Parameter
-    Dim invApp As Inventor.Application
+    Dim invApp As Inventor.Application = GetObject(, "Inventor.Application")
 
-    '##### Endless/Split Boolean'
+    ' Endless/Split-1/Split-2 Boolean'
     Public Sub radiobutton_rodSplit1_Click(sender As Object, e As EventArgs) Handles radiobutton_rodSplit1.Click
         If radiobutton_rodSplit1.Checked = True Then
             rodSplit1 = True
@@ -36,8 +36,37 @@ Public Class Form1
         End If
     End Sub
 
+    Public Sub SaveAsJPG(oPath As String, oWidth As Integer)
+        Dim oDoc As DrawingDocument = invApp.ActiveDocument
+        Dim oSheet As Sheet = oDoc.ActiveSheet
+        Dim oView As Inventor.View = invApp.ActiveView
+        Dim dAspectRatio As Double = oSheet.Height / oSheet.Width
+
+       ' Adjust the aspect ratio of the view to match that of the sheet
+       oView.height = oView.Width * dAspectRatio
+       Dim oCamera As Camera = oView.Camera
+
+       ' Center the sheet to the view
+       oCamera.Fit
+
+       ' Zoom to fit the sheet exactly within the view
+       ' Add some tolerance to make sure the sheet borders are contained
+       oCamera.SetExtents(oSheet.Width * 1.003, oSheet.Height * 1.003)
+
+       ' Apply changes to the camera
+       oCamera.Apply
+
+       ' Save view to jpg. Make sure that the aspect ratio is maintained when exporting
+       oView.SaveAsBitmap(oPath, oWidth, oWidth * dAspectRatio)
+
+       ' Restore the view
+       oCamera.Fit
+       oCamera.Apply
+       'oView.WindowState = kMaximize
+       End Sub
+
     Public Sub button_ok_Click(sender As Object, e As EventArgs) Handles button_ok.Click
-        '##### Get the values from textbox and store as variable (Double)'
+        ' Get the values from textbox and store as variable (Double)'
         internalDiameter = textbox_internalDiameter.Text
         externalDiameter = textbox_externalDiameter.Text
         height = textbox_height.Text
@@ -45,7 +74,7 @@ Public Class Form1
 
         Dim fascia As Double = (externalDiameter - internalDiameter) * 0.5
 
-        ' ##### Verifying the values
+        ' Filtering the wrong values
         If internalDiameter > externalDiameter Then
             MessageBox.Show("Internal Diameter must be smaller than external diameter!", "Wrong Dimension", MessageBoxButtons.OK, MessageBoxIcon.Stop)
             Me.Close()
@@ -60,6 +89,7 @@ Public Class Form1
             MessageBox.Show("Isn't the height too high?" & vbCrLf & "Lower the height and insert a backup ring.", "Wrong Dimension", MessageBoxButtons.OK, MessageBoxIcon.Warning)
             Me.Close()
         End If
+
         If height < fascia + 5 Then
             MessageBox.Show("The height is too low. Make it higher than " & fascia + 5 & " mm.", "Wrong dimension", MessageBoxButtons.OK, MessageBoxIcon.Stop)
             Me.Close()
@@ -70,39 +100,36 @@ Public Class Form1
             Me.Close()
         End If
 
-        '##### Get the Inventor Application object
-        Dim invApp As Inventor.Application
-        invApp = GetObject(, "Inventor.Application")
+        ' HERE
 
-        '##### Open the part.'
-        invApp.Documents.Open("\\dataserver2019\Tecnici\CARCO\EngineeringTEAM\AUTOMATIC_CREATOR\automated-drawing-SA\self-aligning-ring-1.ipt")
+        ' Open the part.'
+        invApp.Documents.Open("C:\Test\Template\self-aligning-ring-1.ipt")
 
-        '##### Get the active document. This assums it's a part document.
+        ' Get the active document. This assums it's a part document.
         partDoc = invApp.ActiveDocument
 
-        '##### Get the Parameters collection.
+        ' Get the Parameters collection.
         Dim params As Inventor.Parameters
         params = partDoc.ComponentDefinition.Parameters
 
-        'Self-aligning ring 1
-        '##### Get the parameter named "dimensionH_parameter"'
+        'SELF-ALIGNING RING 1
+        ' Get the parameter named "dimensionH_parameter"'
         Dim oDimensionHParam As Inventor.Parameter
         oDimensionHParam = params.Item("dimensionH_parameter")
 
-        '##### Get the parameter named "fasciaCollaudo1_parameter"'
+        ' Get the parameter named "fasciaCollaudo1_parameter"'
         Dim oFasciaCollaudo1Param As Inventor.Parameter
         oFasciaCollaudo1Param = params.Item("fasciaCollaudo1_parameter")
 
-        '##### Get the parameter named "dimensionE_parameter"'
+        ' Get the parameter named "dimensionE_parameter"'
         Dim oDimensionEParam As Inventor.Parameter
         oDimensionEParam = params.Item("dimensionE_parameter")
 
-        '##### Get the parameter named "externalDiameter1_parameter"'
+        ' Get the parameter named "externalDiameter1_parameter"'
         Dim oExternalDiameter1Param As Inventor.Parameter
         oExternalDiameter1Param = params.Item("externalDiameter1_parameter")
 
-
-        '##### Calculation parameters
+        ' Calculation parameters
         Dim dimensionAPre, dimensionDPre, dimensionHPre, fasciaCollaudo1Pre, fasciaCollaudo2Pre, externalDiameter1Pre As Double
 
         dimensionAPre = fascia * 0.03
@@ -129,14 +156,13 @@ Public Class Form1
         externalDiameter1 = Math.Round([externalDiameter1Pre], 1)
         externalDiameter2 = externalDiameter
 
-
-        '##### Assign extra 1mm on diameter in case of 1-split / 2-splits.'
+        ' Apply extra 1mm on diameter in case of 1-split / 2-splits.
         If rodSplit1 = True Or rodSplit2 = True Then
             externalDiameter1 = externalDiameter1 + 1
             externalDiameter2 = externalDiameter2 + 1
         End If
 
-        ' ##### Tolerance setting
+        ' TOLERANCE SETTING
         ' Fascia
         Dim finalToleranceFascia1, finalToleranceDimensionE As Double
         If fasciaCollaudo1 < 15 Then
@@ -147,7 +173,7 @@ Public Class Form1
             finalToleranceFascia1 = 0.15
         End If
 
-        'Height ( = dimension E)
+        ' Height ( = dimension E)
         If dimensionE < 15 Then
             Call oDimensionEParam.Tolerance.SetToSymmetric("0.1 mm")
             finalToleranceDimensionE = 0.1
@@ -180,36 +206,40 @@ Public Class Form1
             finalTolerancePositive = 1
         End If
 
-        '##### Change the equation of the parameter.'
+        ' Change the equation of the parameter.
         oDimensionHParam.Expression = dimensionH
         oFasciaCollaudo1Param.Expression = fasciaCollaudo1
         oDimensionEParam.Expression = dimensionE
         oExternalDiameter1Param.Expression = externalDiameter1
 
-        '##### ///Controlling iProperties part'
-        '##### Get the "Design Tracking Properties" property set.'
+        ' Controlling iProperties part
+        ' Get the "Design Tracking Properties" property set.
         Dim designTrackPropSet As Inventor.PropertySet
         designTrackPropSet = partDoc.PropertySets.Item("Design Tracking Properties")
 
-        '##### Assign "Drawing N°".'
-        '##### Get the "Description" property from the property set.'
+        ' Assign "Drawing N°".
+        ' Get the "Description" property from the property set.
         Dim descProp As Inventor.Property
         descProp = designTrackPropSet.Item("Description")
-        '##### Set the value of the property using the current value of the textbox.'
-        descProp.Value = textbox_object.Text
+        ' Set the value of the property using the current value of the textbox.
+        If checkBox_thirdParty.Checked = True Then
+            descProp.Value =""
+        Else
+            descProp.Value = textbox_object.Text
+        End If
 
-        ' ##### Assign "Material"
-        ' ##### Get the "Material" property from the property set.
+        ' Assign "Material"
+        ' Get the "Material" property from the property set
         Dim materialType As Inventor.Property
         materialType = designTrackPropSet.Item("Material")
-        ' ##### Set the value of the property using the value from input form
+        ' Set the value of the property using the value from input form
         materialType.Value = comboBox_materialType.Text
 
-        '##### Assign "Description (Endless/Double splits)".'
-        '##### Get the "Project" property from the property set.'
+        ' Assign "Description (Endless/Double splits)".
+        ' Get the "Project" property from the property set.
         Dim splitProp As Inventor.Property
         splitProp = designTrackPropSet.Item("Project")
-        '##### Set the value of the property using the current value of the textbox.'
+        ' Set the value of the property using the current value of the textbox.
         If rodSplit1 = True Then
             splitProp.Value = "Self-aligning female ring-1 (1 split)"
         End If
@@ -220,25 +250,24 @@ Public Class Form1
             splitProp.Value = "Self-aligning female ring-1 (Endless)"
         End If
 
-        '##### Assign "Housing dimension".'
-        '##### Get the "Inventor Summary Information" property set.'
+        ' Assign "Housing dimension".
+        ' Get the "Inventor Summary Information" property set.
         Dim inventorSummaryInfoPropSet As Inventor.PropertySet
         inventorSummaryInfoPropSet = partDoc.PropertySets.Item("Inventor Summary Information")
-        '##### Get the "Subject" property from the property set.'
+        ' Get the "Subject" property from the property set.
         Dim housingProp As Inventor.Property
         housingProp = inventorSummaryInfoPropSet.Item("Subject")
-        '##### Set the value of the property using the current value of the textbox.'
-        housingProp.Value = internalDiameter.ToString() & "/" & textbox_externalDiameter.Text.ToString() & " * " & textbox_housingHeight.Text.ToString()
+        ' Set the value of the property using the current value of the textbox.
+        If checkBox_thirdParty.Checked = True Then
+            housingProp.Value = ""
+        Else
+            housingProp.Value = internalDiameter.ToString() & "/" & textbox_externalDiameter.Text.ToString() & " * " & textbox_housingHeight.Text.ToString() & " mm"
+        End If
 
-        ' Drawing for a third party
-        'If checkBox_thirdParty.Checked = True Then
-        'End If
-
-
-        '##### Update the document.'
+        ' Update the document.
         invApp.ActiveDocument.Update()
 
-        ' ##### Add revision N° in each exported file name (Except Rev.0)
+        ' Add revision N° in each exported file name (Except Rev.0)
         Dim revision As String
         If comboBox_revision.Text = "0" Or comboBox_revision.Text = "" Then
             revision = ""
@@ -246,16 +275,16 @@ Public Class Form1
             revision = "_rev." & comboBox_revision.Text
         End If
 
-        '##### Save the part-document with the assigned name (drawingNumber).'
-        invApp.ActiveDocument.SaveAs("\\dataserver2019\Tecnici\CARCO\DISEGNI\TORNITURA+MODIFICHE\" & drawingNumber & "-1" & revision & ".ipt", False)
+        ' Save the part-document with the assigned name (drawingNumber).
+        invApp.ActiveDocument.SaveAs("C:\Test\" & drawingNumber & "-1" & revision & ".ipt", False)
 
-        '##### Replace the reference .ipt file on the drawing.'
+        ' Replace the reference .ipt file on the drawing.
         Dim oDoc As Inventor.DrawingDocument
-        oDoc = invApp.Documents.Open("\\dataserver2019\Tecnici\CARCO\EngineeringTEAM\AUTOMATIC_CREATOR\automated-drawing-SA\self-aligning-ring-1.idw")
-        oDoc.File.ReferencedFileDescriptors(1).ReplaceReference("\\dataserver2019\Tecnici\CARCO\DISEGNI\TORNITURA+MODIFICHE\" & drawingNumber & "-1" & revision & ".ipt")
+        oDoc = invApp.Documents.Open("C:\Test\Template\self-aligning-ring-1.idw")
+        oDoc.File.ReferencedFileDescriptors(1).ReplaceReference("C:\Test\" & drawingNumber & "-1" & revision & ".ipt")
 
-        '##### Scale the drawing views according to the external diameter.'
-        ' ##### View A'
+        ' Scale the drawing views according to the external diameter.
+        ' View A
         Dim oViewA As DrawingView
         oViewA = oDoc.ActiveSheet.DrawingViews.Item(1)
         If textbox_externalDiameter.Text < 100 Then
@@ -312,7 +341,7 @@ Public Class Form1
             oViewA.[Scale] = 0.05
         End If
 
-        ' ##### Detail view "B".'
+        ' Detail view "B"
         Dim oViewB As DetailDrawingView
         For Each oSheet As Sheet In oDoc.Sheets
             For Each oView As DrawingView In oSheet.DrawingViews
@@ -322,8 +351,8 @@ Public Class Form1
             Next
         Next
 
-        'Set the scale of Detail View B depending on the size
-        'Scale the detail drawing view according to the height.
+        ' Set the scale of Detail View B depending on the size
+        ' Scale the detail drawing view according to the height.
         If textbox_height.Text < 5 Then
             oViewB.[Scale] = 3
         ElseIf textbox_height.Text >= 5 And textbox_height.Text < 20 Then
@@ -334,7 +363,7 @@ Public Class Form1
             oViewB.[Scale] = 1.5
         End If
 
-        ' ##### 3D view "View3D".'
+        ' 3D view "View3D"
         Dim oView3D As DrawingView
         For Each oSheet As Sheet In oDoc.Sheets
             For Each oView As DrawingView In oSheet.DrawingViews
@@ -344,8 +373,8 @@ Public Class Form1
             Next
         Next
 
-        'Set the scale of 3D view depending on the size
-        'Scale the detail drawing view according to the height.
+        ' Set the scale of 3D view depending on the size
+        ' Scale the detail drawing view according to the height.
         If textbox_externalDiameter.Text < 100 Then
             oView3D.[Scale] = 0.4
         ElseIf textbox_externalDiameter.Text >= 100 And textbox_externalDiameter.Text < 200 Then
@@ -362,7 +391,7 @@ Public Class Form1
             oView3D.[Scale] = 0.03
         End If
 
-        ' ##### Update the revision table
+        ' Update the revision table
         Dim oRevisionTable As RevisionTable = oDoc.ActiveSheet.RevisionTables.Item(1)
         Dim oRow As RevisionTableRow = oRevisionTable.RevisionTableRows.Item(1)
         Dim oCell1 As RevisionTableCell = oRow.Item(1)
@@ -371,7 +400,8 @@ Public Class Form1
         Dim oCell4 As RevisionTableCell = oRow.Item(4)
         Dim oCell5 As RevisionTableCell = oRow.Item(5)
 
-        Dim oggi As Date = Date.Today   ' Date
+        ' Date
+        Dim oggi As Date = Date.Today   
 
         If comboBox_revision.Text = "0" Or comboBox_revision.Text = "" Then
             oCell1.Text = "0"
@@ -388,7 +418,7 @@ Public Class Form1
         oCell4.Text = textbox_signature.Text    ' Approved
         oCell5.Text = oggi                      ' Date (dd/mm/yyyy)
 
-        ' #####Created a textbox to indicate final dimensions
+        ' Created a textbox to indicate final dimensions
         Dim oSketch As DrawingSketch
         oSketch = oDoc.ActiveSheet.Sketches.Add
         oSketch.Edit
@@ -396,7 +426,7 @@ Public Class Form1
         Dim oTG As TransientGeometry
         oTG = invApp.TransientGeometry
 
-        'Create 3 lines of final dimension with tolerance
+        ' Create 3 lines of final dimension with tolerance
         Dim o1TextBox1, o1TextBox2, o1TextBox3, o1TextBox4, o1TextBoxFin As TextBox
         o1TextBox1 = oSketch.TextBoxes.AddFitted(oTG.CreatePoint2D(2.5, 9.1), "Øext coll. = " & externalDiameter1 - 1 & " mm" & " +" & finalTolerancePositive & " / -" & 0 )
         o1TextBox2 = oSketch.TextBoxes.AddFitted(oTG.CreatePoint2D(2.5, 8.4), "F coll. = " & fasciaCollaudo1 & " mm" & " ±" & finalToleranceFascia1)
@@ -408,57 +438,63 @@ Public Class Form1
         o1TextBox3.Style.FontSize = 0.3
         o1TextBox4.Style.FontSize = 0.3
 
-        'Exit the sketch mode from the edit environment
+        ' Create a note of "Object" & "Housing dimension" in case the drawing is for a third party.
+        If checkBox_thirdParty.Checked = True Then
+        Dim o1TextBoxObject, o1TextBoxHousingDimension As TextBox
+        o1TextBoxObject = oSketch.TextBoxes.AddFitted(oTG.CreatePoint2D(25, 3.5), textbox_object.Text )
+        o1TextBoxHousingDimension = oSketch.TextBoxes.AddFitted(oTG.CreatePoint2D(25, 3), internalDiameter.ToString() & "/" & textbox_externalDiameter.Text.ToString() & " * " & textbox_housingHeight.Text.ToString() & " mm" )
+        End If
+
+        ' Exit the sketch mode from the edit environment
         oSketch.ExitEdit
 
-        '##### Save the drawing-document with the assigned name (drawingNumber).'
-        invApp.ActiveDocument.SaveAs("\\dataserver2019\Tecnici\CARCO\DISEGNI\TORNITURA+MODIFICHE\" & drawingNumber & "-1" & revision & ".idw", False)
+        ' Save the drawing-document with the assigned name (drawingNumber).
+        invApp.ActiveDocument.SaveAs("C:\Test\" & drawingNumber & "-1" & revision & ".idw", False)
 
-        '##### Update the document.'
+        ' Update the document.'
         invApp.ActiveDocument.Update()
 
-        ' ##### Export to PDF.'
+        ' Export to PDF.'
         ' Get the active docuement.
         oDoc = invApp.ActiveDocument
 
         ' Save a copy as a PDF file.
-        Call oDoc.SaveAs("\\dataserver2019\Tecnici\CARCO\DISEGNI\TORNITURA+MODIFICHE\" & drawingNumber & "-1" & revision & ".pdf", True)
+        Call oDoc.SaveAs("C:\Test\" & drawingNumber & "-1" & revision & ".pdf", True)
 
         ' Save a copy as a jpeg file.
-        'Call oDoc.SaveAsBitmap("\\dataserver2019\Tecnici\CARCO\DISEGNI\TORNITURA+MODIFICHE\" + drawingNumber + ".jpg", 2303, 3258)
-        'Call oDoc.SaveAs("\\dataserver2019\Tecnici\CARCO\DISEGNI\TORNITURA+MODIFICHE\" + drawingNumber + ".jpg", True)
+        ' Call oDoc.SaveAs("\\dataserver2019\Tecnici\CARCO\DISEGNI\TORNITURA+MODIFICHE\" + drawingNumber + ".jpg", True)
 
-        'SaveAsJPG("C:\Users\minso\Documents\Drawings", 3000)
-
+        Call SaveAsJPG("C:\Test\Images\" & drawingNumber & "-1" & revision & ".jpg", 2303)
+        
         ' CREATE A PART FOR THE RING - 2
-        '##### Open the part.'
-        invApp.Documents.Open("\\dataserver2019\Tecnici\CARCO\EngineeringTEAM\AUTOMATIC_CREATOR\automated-drawing-SA\self-aligning-ring-2.ipt")
+        ' Open the part.'
+        invApp.Documents.Open("C:\Test\Template\self-aligning-ring-2.ipt")
 
-        '##### Get the active document. This assums it's a part document.
+        ' Get the active document. This assums it's a part document.
         partDoc = invApp.ActiveDocument
 
-        '##### Get the Parameters collection.
-        'Dim params As Inventor.Parameters
+        ' Get the Parameters collection.
+        ' Dim params As Inventor.Parameters
         params = partDoc.ComponentDefinition.Parameters
 
-        'Self-aligning ring 2
-        '##### Get the parameter named "dimensionA_parameter"'
+        ' Self-aligning ring 2
+        ' Get the parameter named "dimensionA_parameter"
         Dim oDimensionAParam As Inventor.Parameter
         oDimensionAParam = params.Item("dimensionA_parameter")
 
-        '##### Get the parameter named "fasciaCollaudo2_parameter"'
+        ' Get the parameter named "fasciaCollaudo2_parameter"
         Dim oFasciaCollaudo2Param As Inventor.Parameter
         oFasciaCollaudo2Param = params.Item("fasciaCollaudo2_parameter")
 
-        '##### Get the parameter named "dimensionD_parameter"'
+        ' Get the parameter named "dimensionD_parameter"
         Dim oDimensionDParam As Inventor.Parameter
         oDimensionDParam = params.Item("dimensionD_parameter")
 
-        '##### Get the parameter named "externalDiameter2_parameter"'
+        ' Get the parameter named "externalDiameter2_parameter"
         Dim oExternalDiameter2Param As Inventor.Parameter
         oExternalDiameter2Param = params.Item("externalDiameter2_parameter")
 
-        ' ##### Tolerance setting
+        ' TOLERANCE SETTING
         ' Fascia
         Dim finalToleranceFascia2, finalToleranceDimensionD As Double
         If fasciaCollaudo2 < 15 Then
@@ -469,7 +505,7 @@ Public Class Form1
             finalToleranceFascia2 = 0.15
         End If
 
-        'Height ( = dimension D)
+        ' Height ( = dimension D)
         If dimensionD < 15 Then
             Call oDimensionDParam.Tolerance.SetToSymmetric("0.1 mm")
             finalToleranceDimensionD = 0.1
@@ -486,40 +522,44 @@ Public Class Form1
             Call oExternalDiameter2Param.Tolerance.SetToDeviation(Math.Round([splitToleranceExternalDiameter], 2), "-0,0 mm")  ' standard unit is cm, thus apply extra 0.1
         End If
 
-        'TOLERANCE
-        'EXTERNAL DIMATER
-        'Final tolerance on external diameter (in case of split)
+        ' TOLERANCE
+        ' EXTERNAL DIMATER
+        ' Final tolerance on external diameter (in case of split)
 
-        '##### Change the equation of the parameter.'
+        ' Change the equation of the parameter.
         oDimensionAParam.Expression = dimensionA
         oFasciaCollaudo2Param.Expression = fasciaCollaudo2
         oDimensionDParam.Expression = dimensionD
         oExternalDiameter2Param.Expression = externalDiameter2
 
-        '##### ///Controlling iProperties part'
-        '##### Get the "Design Tracking Properties" property set.'
+        ' Controlling iProperties part
+        ' Get the "Design Tracking Properties" property set.
         Dim designTrackPropSet2 As Inventor.PropertySet
         designTrackPropSet2 = partDoc.PropertySets.Item("Design Tracking Properties")
 
-        '##### Assign "Drawing N°".'
-        '##### Get the "Description" property from the property set.'
+        ' Assign "Drawing N°".
+        ' Get the "Description" property from the property set.
         Dim descProp2 As Inventor.Property
         descProp2 = designTrackPropSet2.Item("Description")
-        '##### Set the value of the property using the current value of the textbox.'
+        ' Set the value of the property using the current value of the textbox.
+        If checkBox_thirdParty.Checked = True Then
+        descProp2.Value = ""
+        Else
         descProp2.Value = textbox_object.Text
+        End If
 
-        ' ##### Assign "Material"
-        ' ##### Get the "Material" property from the property set.
+        ' Assign "Material"
+        ' Get the "Material" property from the property set.
         Dim materialType2 As Inventor.Property
         materialType2 = designTrackPropSet2.Item("Material")
-        ' ##### Set the value of the property using the value from input form
+        ' Set the value of the property using the value from input form
         materialType2.Value = comboBox_materialType.Text
 
-        '##### Assign "Description (Endless/Double splits)".'
-        '##### Get the "Project" property from the property set.'
+        ' Assign "Description (Endless/Double splits)".
+        ' Get the "Project" property from the property set.
         Dim splitProp2 As Inventor.Property
         splitProp2 = designTrackPropSet2.Item("Project")
-        '##### Set the value of the property using the current value of the textbox.'
+        ' Set the value of the property using the current value of the textbox.
         If rodSplit1 = True Then
             splitProp2.Value = "Self-aligning female ring-2 (1 split)"
         End If
@@ -530,33 +570,33 @@ Public Class Form1
             splitProp2.Value = "Self-aligning female ring-2 (Endless)"
         End If
 
-        '##### Assign "Housing dimension".'
-        '##### Get the "Inventor Summary Information" property set.'
+        ' Assign "Housing dimension"
+        ' Get the "Inventor Summary Information" property set.
         Dim inventorSummaryInfoPropSet2 As Inventor.PropertySet
         inventorSummaryInfoPropSet2 = partDoc.PropertySets.Item("Inventor Summary Information")
-        '##### Get the "Subject" property from the property set.'
+        ' Get the "Subject" property from the property set.
         Dim housingProp2 As Inventor.Property
         housingProp2 = inventorSummaryInfoPropSet2.Item("Subject")
-        '##### Set the value of the property using the current value of the textbox.'
-        housingProp2.Value = internalDiameter.ToString() & "/" & textbox_externalDiameter.Text.ToString() & " * " & textbox_housingHeight.Text.ToString()
+        ' Set the value of the property using the current value of the textbox.
+        If checkBox_thirdParty.Checked = True Then
+        housingProp2.Value = ""
+        Else
+        housingProp2.Value = internalDiameter.ToString() & "/" & textbox_externalDiameter.Text.ToString() & " * " & textbox_housingHeight.Text.ToString() & " mm"
+        End If
 
-        ' Drawing for a third party
-        'If checkBox_thirdParty.Checked = True Then
-        'End If
-
-        '##### Update the document.'
+        ' Update the document.
         invApp.ActiveDocument.Update()
 
-        '##### Save the part-document with the assigned name (drawingNumber).'
-        invApp.ActiveDocument.SaveAs("\\dataserver2019\Tecnici\CARCO\DISEGNI\TORNITURA+MODIFICHE\" & drawingNumber & "-2" & revision & ".ipt", False)
+        ' Save the part-document with the assigned name (drawingNumber).
+        invApp.ActiveDocument.SaveAs("C:\Test\" & drawingNumber & "-2" & revision & ".ipt", False)
 
-        '##### Replace the reference .ipt file on the drawing.'
+        ' Replace the reference .ipt file on the drawing.
         Dim oDoc2 As Inventor.DrawingDocument
-        oDoc2 = invApp.Documents.Open("\\dataserver2019\Tecnici\CARCO\EngineeringTEAM\AUTOMATIC_CREATOR\automated-drawing-SA\self-aligning-ring-2.idw")
-        oDoc2.File.ReferencedFileDescriptors(1).ReplaceReference("\\dataserver2019\Tecnici\CARCO\DISEGNI\TORNITURA+MODIFICHE\" & drawingNumber & "-2" & revision & ".ipt")
+        oDoc2 = invApp.Documents.Open("C:\Test\Template\self-aligning-ring-2.idw")
+        oDoc2.File.ReferencedFileDescriptors(1).ReplaceReference("C:\Test\" & drawingNumber & "-2" & revision & ".ipt")
 
-        '##### Scale the drawing views according to the external diameter.'
-        ' ##### View A'
+        ' Scale the drawing views according to the external diameter.
+        ' View A
         Dim oViewA2 As DrawingView
         oViewA2 = oDoc2.ActiveSheet.DrawingViews.Item(1)
         If textbox_externalDiameter.Text < 100 Then
@@ -613,7 +653,7 @@ Public Class Form1
             oViewA2.[Scale] = 0.05
         End If
 
-        ' ##### Detail view "B".'
+        ' Detail view "B".
         Dim oViewB2 As DetailDrawingView
         For Each oSheet2 As Sheet In oDoc2.Sheets
             For Each oView2 As DrawingView In oSheet2.DrawingViews
@@ -623,8 +663,8 @@ Public Class Form1
             Next
         Next
 
-        'Set the scale of Detail View B depending on the size
-        'Scale the detail drawing view according to the height.
+        ' Set the scale of Detail View B depending on the size
+        ' Scale the detail drawing view according to the height.
         If textbox_height.Text < 5 Then
             oViewB2.[Scale] = 3
         ElseIf textbox_height.Text >= 5 And textbox_height.Text < 20 Then
@@ -635,7 +675,7 @@ Public Class Form1
             oViewB2.[Scale] = 1.5
         End If
 
-        ' ##### 3D view "View3D".'
+        ' 3D view "View3D"
         Dim oView3D2 As DrawingView
         For Each oSheet2 As Sheet In oDoc2.Sheets
             For Each oView2 As DrawingView In oSheet2.DrawingViews
@@ -645,8 +685,8 @@ Public Class Form1
             Next
         Next
 
-        'Set the scale of 3D view depending on the size
-        'Scale the detail drawing view according to the height.
+        ' Set the scale of 3D view depending on the size
+        ' Scale the detail drawing view according to the height.
         If textbox_externalDiameter.Text < 100 Then
             oView3D2.[Scale] = 0.4
         ElseIf textbox_externalDiameter.Text >= 100 And textbox_externalDiameter.Text < 200 Then
@@ -663,7 +703,7 @@ Public Class Form1
             oView3D2.[Scale] = 0.03
         End If
 
-        ' ##### Update the revision table
+        ' Update the revision table
         Dim oRevisionTable2 As RevisionTable = oDoc2.ActiveSheet.RevisionTables.Item(1)
         Dim oRow2 As RevisionTableRow = oRevisionTable2.RevisionTableRows.Item(1)
         Dim o2Cell1 As RevisionTableCell = oRow2.Item(1)
@@ -687,7 +727,7 @@ Public Class Form1
         o2Cell4.Text = textbox_signature.Text    ' Approved
         o2Cell5.Text = oggi                      ' Date (dd/mm/yyyy)
 
-        ' #####Created a textbox to indicate final dimensions
+        ' Created a textbox to indicate final dimensions
         Dim oSketch2 As DrawingSketch
         oSketch2 = oDoc2.ActiveSheet.Sketches.Add
         oSketch2.Edit
@@ -695,7 +735,7 @@ Public Class Form1
         Dim oTG2 As TransientGeometry
         oTG2 = invApp.TransientGeometry
 
-        'Create 3 lines of final dimension with tolerance
+        ' Create 3 lines of final dimension with tolerance
         Dim o2TextBox1, o2TextBox2, o2TextBox3, o2TextBox4 As TextBox
         o2TextBox1= oSketch2.TextBoxes.AddFitted(oTG2.CreatePoint2D(2.5, 9.1), "Øext coll. = " & externalDiameter2 - 1 & " mm" & " +" & 0 & " / -" & finalTolerancePositive )
         o2TextBox2 = oSketch2.TextBoxes.AddFitted(oTG2.CreatePoint2D(2.5, 8.4), "F coll. = " & fasciaCollaudo2 & " mm" & " ±" & finalToleranceFascia2)
@@ -707,25 +747,34 @@ Public Class Form1
         o2TextBox3.Style.FontSize = 0.3
         o2TextBox4.Style.FontSize = 0.3
 
-        'Exit the sketch mode from the edit environment
+        ' Create a note of "Object" & "Housing dimension" in case the drawing is for a third party.
+        If checkBox_thirdParty.Checked = True Then
+        Dim o2TextBoxObject, o2TextBoxHousingDimension As TextBox
+        o2TextBoxObject = oSketch2.TextBoxes.AddFitted(oTG2.CreatePoint2D(25, 3.5), textbox_object.Text )
+        o2TextBoxHousingDimension = oSketch2.TextBoxes.AddFitted(oTG2.CreatePoint2D(25, 3), internalDiameter.ToString() & "/" & textbox_externalDiameter.Text.ToString() & " * " & textbox_housingHeight.Text.ToString() & " mm" )
+        End If
+
+        ' Exit the sketch mode from the edit environment
         oSketch2.ExitEdit
 
-        '##### Save the drawing-document with the assigned name (drawingNumber).'
-        invApp.ActiveDocument.SaveAs("\\dataserver2019\Tecnici\CARCO\DISEGNI\TORNITURA+MODIFICHE\" & drawingNumber & "-2" & revision & ".idw", False)
+        ' Save the drawing-document with the assigned name (drawingNumber).
+        invApp.ActiveDocument.SaveAs("C:\Test\" & drawingNumber & "-2" & revision & ".idw", False)
 
-        '##### Update the document.'
+        ' Update the document.
         invApp.ActiveDocument.Update()
 
-        ' ##### Export to PDF.'
+        ' Export to PDF.
         ' Get the active docuement.
         oDoc2 = invApp.ActiveDocument
 
         ' Save a copy as a PDF file.
-        Call oDoc2.SaveAs("\\dataserver2019\Tecnici\CARCO\DISEGNI\TORNITURA+MODIFICHE\" & drawingNumber & "-2" & revision & ".pdf", True)
+        Call oDoc2.SaveAs("C:\Test\" & drawingNumber & "-2" & revision & ".pdf", True)
 
-        'Finishing message
+        ' Save a copy as a jpg file.
+        Call SaveAsJPG("C:\Test\Images\" & drawingNumber & "-2" & revision & ".jpg", 2303)
+
+        ' Finishing message
         MessageBox.Show("Automated drawing is generated. Please double check!", "Taaaaaac! :D", MessageBoxButtons.OK, MessageBoxIcon.None)
         Me.Close()
     End Sub
-
 End Class
