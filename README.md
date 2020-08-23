@@ -18,8 +18,8 @@ This automatic drawing creater will save you from all the hustles above and gene
 
 ### Layout
 When you start the application you will see the window below.
-<a href="https://github.com/Minso-xyz/automated-drawing-SA-female-ring/blob/master/layout-indication.png?raw=true">
-
+<a href="">
+    <img src="https://github.com/Minso-xyz/automated-drawing-SA-female-ring/blob/master/layout-indication.png?raw=true" alt=""/>
 </a>
 
 1. Nominal dimension (Internal diameter, External diameter, Height).
