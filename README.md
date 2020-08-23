@@ -47,6 +47,13 @@ In the generated drawing, you can see all the information of product is already 
 
 The following drawings will be generated in the assigned folder (in .pdf and .jpeg)
 
+<a href="">
+    <img src="https://github.com/Minso-xyz/automated-drawing-SA-female-ring/blob/master/drawing-1.png?raw=true" alt=""/>
+</a>
+
+<a href="">
+    <img src="https://github.com/Minso-xyz/automated-drawing-SA-female-ring/blob/master/drawing-2.png?raw=true" alt=""/>
+</a>
 
 
 
